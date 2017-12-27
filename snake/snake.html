@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <style>
+        #map {
+            width: 800px;
+            height: 600px;
+            background-color: #ccc;
+            margin: 60px auto;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script>
+    //食物
+    (function () {
+        //食物的元素赋予
+        //食物的条件有 宽 高 颜色 坐标 所在位置
+        function Food(options) {
+            this.width = options.width || 20;
+            this.height = options.height || 20;
+            this.bgColor = options.bgColor || "orange";
+            this.x = 0;
+            this.y = 0;
+            this.map = options.map;
+            //设置一个盒子用来存放上一次的食物
+            this.element = null;
+        }
+
+        //食物初始化操作
+        Food.prototype.init = function () {
+            //检测,删除上一个食物
+            if (this.element) {
+                this.map.removeChild(this.element);
+            }
+            ;
+            var div = document.createElement("div");
+            this.element = div;
+            div.style.width = this.width + "px";
+            div.style.height = this.height + "px";
+            div.style.backgroundColor = this.bgColor;
+            div.style.position = "absolute";
+            this.map.appendChild(div);
+            this.changeDirection();
+        }
+        //食物坐标
+        Food.prototype.changeDirection = function () {
+            this.x = Math.floor(Math.random() * this.map.offsetWidth / this.width);
+            this.y = Math.floor(Math.random() * this.map.offsetHeight / this.height);
+            this.element.style.left = this.x * this.width + "px";
+            this.element.style.top = this.y * this.height + "px";
+        }
+        window.Food = Food;
+    })();
+    //小蛇
+    (function () {
+        //小蛇的功能元素 有 宽 高 颜色 所在位置 移动方向
+        function Snake(options) {
+            this.width = options.width || 20;
+            this.height = options.height || 20;
+            //设置一个蛇身,由于有三部分,头 身 尾 所以用对象表示最方便,每一部分是一个对象形式,三部分用数组
+            this.body = [{x: 3, y: 1, color: "red"}, {x: 2, y: 1, color: "blue"}, {x: 1, y: 1, color: "blue"}];
+            this.map = options.map;
+            //移动时删除上一次的蛇
+            this.elements = [];
+            //蛇移动的方向
+            this.direction = options.direction || "right";
+        };
+        //小蛇初始化
+        Snake.prototype.init = function () {
+            for (var i = 0; i < this.elements.length; i++) {
+                this.map.removeChild(this.elements[i]);
+            }
+            this.elements = [];
+            var div;
+            for (i = 0; i < this.body.length; i++) {
+                div = document.createElement("div");
+                div.style.width = this.width + "px"
+                div.style.height = this.height + "px";
+                div.style.position = "absolute";
+                div.style.left = this.body[i].x * this.width + "px";
+                div.style.top = this.body[i].y * this.height + "px";
+                div.style.backgroundColor = this.body[i].color;
+                this.map.appendChild(div);
+                this.elements.push(div);
+            }
+        };
+        //蛇的坐标移动
+        Snake.prototype.move = function () {
+            for (var i = this.body.length - 1; i > 0; i--) {
+                this.body[i].x = this.body[i - 1].x;
+                this.body[i].y = this.body[i - 1].y;
+//                this.body[i].color = this.body[i-1].color;
+            }
+            ;
+            switch (this.direction) {
+                case "left":
+                    this.body[0].x--;
+                    break;
+                case "right":
+                    this.body[0].x++;
+                    break;
+                case "up":
+                    this.body[0].y--;
+                    break;
+                case "down":
+                    this.body[0].y++;
+                    break;
+            }
+
+        }
+        window.Snake = Snake;
+    })();
+    //游戏实现
+    (function () {
+        //先确定功能需要哪些,需要 蛇 食物 地图
+        var that;
+
+        function Game(options) {
+            this.food = options.food;
+            this.snake = options.snake;
+            this.map = options.map;
+            that = this
+        }
+
+        //游戏初始化
+        Game.prototype.init = function () {
+            this.food.init();
+            this.snake.init();
+            //键盘控制蛇运动方向
+            this.changeDirection();
+            //小蛇跑动
+            this.snakeRun();
+        };
+        Game.prototype.snakeRun = function () {
+            var temp = null;
+            temp = setInterval(function () {
+                that.snake.move();
+                //事件1,小蛇吃了食物长度会增加,最佳的为自己尾巴的坐标
+                if (that.snake.body[0].x == that.food.x && that.snake.body[0].y == that.food.y) {
+                    that.snake.body.push({
+                        x: that.snake.body[that.snake.body.length - 1].x,
+                        y: that.snake.body[that.snake.body.length - 1].y,
+                        color: "pink"
+                    });
+                    //吃掉食物后应该再生成一个新的食物
+                    that.food.init();
+                }
+                //蛇死的几种情况
+                //撞墙死,设置墙的边界.
+                var maxX = that.map.offsetWidth / that.food.width - 1;
+                var maxY = that.map.offsetHeight / that.food.height - 1;
+                //蛇身不会撞墙,所以这里检测蛇头
+                if (that.snake.body[0].x < 0 || that.snake.body[0].y < 0 || that.snake.body[0].x > maxX || that.snake.body[0].y > maxY) {
+                    clearInterval(temp);
+                    alert("你失败了!");
+                    return;
+                }
+                //吃自己死
+                for (var i = 4; i < that.snake.body.length; i++) {
+                    if (that.snake.body[0].x == that.snake.body[i].x && that.snake.body[0].y == that.snake.body[i].y) {
+                        clearInterval(temp);
+                        alert("你失败了!");
+                        return;
+                    }
+                }
+                that.snake.init();
+
+            }, 150);
+        };
+        Game.prototype.changeDirection = function () {
+            document.onkeydown = function (e) {
+                var e = e || window.event;
+                switch (true) {
+                    case e.keyCode == 37 && that.snake.direction != "right":
+                        that.snake.direction = "left";
+                        break;
+                    case e.keyCode == 38 && that.snake.direction != "down":
+                        that.snake.direction = "up";
+                        break;
+                    case e.keyCode == 39 && that.snake.direction != "left":
+                        that.snake.direction = "right";
+                        break;
+                    case e.keyCode == 40 && that.snake.direction != "up":
+                        that.snake.direction = "down";
+                        break;
+                }
+            }
+        }
+        window.Game = Game;
+    })();
+    var map = document.getElementById("map");
+    var game = new Game({
+        map: map,
+        food: new Food({map: map}),
+        snake: new Snake({map: map})
+    });
+    game.init();
+</script>
+</body>
+</html>
